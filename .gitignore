@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# native generated projects
+apps/web/android/
+apps/web/ios/
+apps/web/.gradle/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*

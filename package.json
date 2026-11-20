@@ -1,0 +1,26 @@
+{
+  "name": "tessera-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tessera — personal AI assistant for modules and integrations",
+  "workspaces": [
+    "apps/web",
+    "apps/server"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace @tessera/web run dev",
+    "dev:api": "npm --workspace @tessera/server run start:dev",
+    "build:web": "npm --workspace @tessera/web run build",
+    "build:api": "npm --workspace @tessera/server run build",
+    "preview:web": "npm --workspace @tessera/web run preview",
+    "cap:sync": "npm --workspace @tessera/web run cap:sync",
+    "cap:add:android": "npm --workspace @tessera/web run cap:add:android",
+    "build:android": "npm run build:web && npm run cap:add:android && npm run cap:sync",
+    "typecheck": "npm --workspace @tessera/web run typecheck",
+    "lint": "npm --workspace @tessera/web run typecheck",
+    "test": "npm --workspace @tessera/web run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

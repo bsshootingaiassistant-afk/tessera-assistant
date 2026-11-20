@@ -1,0 +1,7 @@
+name: tessera_kernel
+description: Core contracts for Tessera modules and integrations.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'

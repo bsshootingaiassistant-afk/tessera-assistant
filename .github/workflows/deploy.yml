@@ -1,0 +1,153 @@
+name: Deploy Tessera
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  verify:
+    name: Typecheck & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+  build-web:
+    name: Build web
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        env:
+          VITE_GITHUB_REPO: ${{ github.repository }}
+        run: npm run build:web
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-android:
+    name: Build Android APK
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web bundle
+        env:
+          VITE_GITHUB_REPO: ${{ github.repository }}
+        run: npm run build:web
+
+      - name: Add Android platform
+        working-directory: apps/web
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: Patch Android project
+        run: node scripts/patch-android.mjs apps/web/android
+
+      - name: Assemble debug APK
+        working-directory: apps/web/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: |
+          cp apps/web/android/app/build/outputs/apk/debug/app-debug.apk tessera-assistant.apk
+          ls -lh tessera-assistant.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tessera-android-apk
+          path: tessera-assistant.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          NOTES="## Tessera v$VERSION
+
+          - Автоматическая сборка из коммита ${{ github.sha }}
+          - Веб-версия: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          - APK: скачайте \`tessera-assistant.apk\` ниже
+
+          Установка: разрешите установку из этого источника и откройте файл.
+          Обновление поверх предыдущей версии сохраняет данные приложения."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" tessera-assistant.apk --clobber
+            gh release edit "$TAG" --notes "$NOTES" --latest
+          else
+            gh release create "$TAG" tessera-assistant.apk \
+              --title "Tessera v$VERSION" \
+              --notes "$NOTES" \
+              --latest
+          fi
