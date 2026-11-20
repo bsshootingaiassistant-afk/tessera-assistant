@@ -111,6 +111,11 @@ jobs:
       - name: Patch Android project
         run: node scripts/patch-android.mjs apps/web/android
 
+      - name: Generate launcher icons and splash
+        working-directory: apps/web
+        continue-on-error: true
+        run: npx capacitor-assets generate --android --iconBackgroundColor '#0B0F14' --splashBackgroundColor '#0B0F14'
+
       - name: Assemble debug APK
         working-directory: apps/web/android
         run: |
