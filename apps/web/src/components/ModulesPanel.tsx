@@ -101,6 +101,7 @@ export function ModulesPanel({
                 <div className="module-card__body">
                   <div className="module-card__title">
                     <strong>{module.name}</strong>
+                    {module.demo && <span className="badge badge--soft">пример</span>}
                     <span className={cls('status-dot', `status-dot--${module.status}`)} />
                   </div>
                   <div className="module-card__meta">

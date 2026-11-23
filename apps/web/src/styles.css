@@ -1709,6 +1709,28 @@ a:hover {
   border-radius: 4px;
 }
 
+.field-error {
+  font-size: 10.5px;
+  color: var(--danger);
+  line-height: 1.45;
+}
+
+.model-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.model-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-row .ghost-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .label-hint {
   font-weight: 400;
   color: var(--text-faint);

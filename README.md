@@ -184,18 +184,31 @@ APK: `apps/web/android/app/build/outputs/apk/debug/app-debug.apk`.
 
 По умолчанию приложение работает **офлайн**: ответы генерирует встроенный помощник, данные не покидают устройство.
 
-Чтобы подключить реальную модель:
+В **Настройках → ИИ и API** выберите провайдера — base URL и модель подставятся автоматически. Кнопка **«Загрузить»** запрашивает каталог моделей и заполняет список, чтобы не вводить имя вручную.
 
-1. Запустите `apps/server` с ключом:
-   ```bash
-   cp apps/server/.env.example apps/server/.env
-   # впишите OPENAI_API_KEY и при необходимости OPENAI_BASE_URL / OPENAI_MODEL
-   npm run dev:api
-   ```
-2. В приложении: **Настройки → ИИ и API → API endpoint** = `http://localhost:3000`.
-3. Поле «Модель» можно оставить `tessera-core` — сервер подставит `OPENAI_MODEL`.
+| Провайдер | Base URL | Каталог моделей |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | `GET /models` |
+| OpenRouter | `https://openrouter.ai/api/v1` | `GET /models` (открыт) |
+| DeepSeek | `https://api.deepseek.com/v1` | `GET /models` |
+| Mistral | `https://api.mistral.ai/v1` | `GET /models` |
+| Groq | `https://api.groq.com/openai/v1` | `GET /models` |
+| Together AI | `https://api.together.xyz/v1` | `GET /models` |
+| Fireworks AI | `https://api.fireworks.ai/inference/v1` | `GET /models` |
+| xAI | `https://api.x.ai/v1` | `GET /models` |
+| Ollama | `http://localhost:11434/v1` | `GET /api/tags` |
+| LM Studio | `http://localhost:1234/v1` | `GET /models` |
+| Tessera API | `http://localhost:3000` | вручную |
 
-Сервер поддерживает любой OpenAI-совместимый API (OpenAI, Azure OpenAI, OpenRouter, локальный Ollama с `/v1`). Без ключа сервер тоже работает и стримит локальные ответы.
+Облачные провайдеры вызываются напрямую из браузера; ключ хранится в localStorage и уходит только выбранному сервису. Для локальных серверов с HTTPS-страницы браузер может блокировать mixed content — тогда используйте режим **Tessera API**:
+
+```bash
+cp apps/server/.env.example apps/server/.env
+# OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+npm run dev:api
+```
+
+В приложении выберите провайдера **Tessera API** и укажите `http://localhost:3000`. Сервер проксирует запросы и без ключа стримит локальные ответы.
 
 ---
 
@@ -248,7 +261,14 @@ APK собирается в CI и публикуется в GitHub Releases. Л�
 - добавляет `REQUEST_INSTALL_PACKAGES` — разрешение на запуск установщика APK;
 - отключает cleartext traffic.
 
-Подпись: CI собирает **debug** APK, он устанавливается вручную. Для Google Play добавьте keystore и `assembleRelease` (см. Roadmap).
+Подпись:
+
+- `appId` — `ai.tessera.assistant` (уникальный, не конфликтует с пакетом `com.tessera.assistant`);
+- CI подписывает debug APK **постоянным ключом** из GitHub Secrets, поэтому новая версия ставится поверх предыдущей и данные сохраняются;
+- секреты: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`;
+- локальная копия keystore: `C:\Users\Home_PC\.secrets\tessera-release.jks` (в репозиторий не попадает).
+
+Если секреты не заданы, CI откатывается на временную debug-подпись и предупреждает об этом — такие APK не обновляются поверх друг друга.
 
 ---
 

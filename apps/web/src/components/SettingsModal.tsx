@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AccentId, Settings, ThemeMode } from '../types';
+import { AccentId, ProviderId, Settings, ThemeMode } from '../types';
 import { cls } from '../lib/utils';
+import { PROVIDERS, applyProvider, fetchProviderModels, providerById } from '../lib/providers';
 import { Icon } from './Icon';
 
 interface SettingsModalProps {
@@ -42,12 +43,18 @@ export function SettingsModal({
   const [tab, setTab] = useState<Tab>('general');
   const [draft, setDraft] = useState<Settings>(settings);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setDraft(settings);
     setTab('general');
     setConfirmClear(false);
+    setModels([]);
+    setModelsError('');
+    setModelsLoading(false);
   }, [open, settings]);
 
   useEffect(() => {
@@ -61,8 +68,34 @@ export function SettingsModal({
 
   if (!open) return null;
 
+  const preset = providerById(draft.provider);
+
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const selectProvider = (id: ProviderId) => {
+    setDraft((prev) => applyProvider(prev, id));
+    setModels([]);
+    setModelsError('');
+  };
+
+  const loadModels = async () => {
+    setModelsLoading(true);
+    setModelsError('');
+    try {
+      const list = await fetchProviderModels(draft);
+      setModels(list);
+      if (list.length === 0) {
+        setModelsError('Каталог пуст — введите модель вручную.');
+      } else if (!draft.model || !list.includes(draft.model)) {
+        setDraft((prev) => ({ ...prev, model: list[0] }));
+      }
+    } catch (error) {
+      setModelsError(error instanceof Error ? error.message : 'Не удалось загрузить модели.');
+    } finally {
+      setModelsLoading(false);
+    }
   };
 
   const save = () => {
@@ -177,58 +210,126 @@ export function SettingsModal({
                 <section className="settings__section">
                   <h3>Подключение модели</h3>
                   <div className="field">
-                    <label htmlFor="api-base">API endpoint</label>
+                    <label htmlFor="provider">Провайдер</label>
+                    <select
+                      id="provider"
+                      value={draft.provider}
+                      onChange={(event) => selectProvider(event.target.value as ProviderId)}
+                    >
+                      {PROVIDERS.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="field-hint">
+                      {preset.hint}{' '}
+                      {preset.keysUrl && (
+                        <a href={preset.keysUrl} target="_blank" rel="noopener noreferrer">
+                          Получить ключ
+                        </a>
+                      )}
+                      {preset.docsUrl && (
+                        <>
+                          {' · '}
+                          <a href={preset.docsUrl} target="_blank" rel="noopener noreferrer">
+                            Документация
+                          </a>
+                        </>
+                      )}
+                    </small>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="api-base">Base URL</label>
                     <input
                       id="api-base"
                       value={draft.apiBase}
                       onChange={(event) => update('apiBase', event.target.value)}
-                      placeholder="https://api.example.com"
+                      placeholder="https://api.example.com/v1"
                       inputMode="url"
                     />
                     <small className="field-hint">
-                      Запросы уходят на <code>POST /api/chat</code>. Пустое поле — локальный офлайн-режим.
+                      Для облачных провайдеров — OpenAI-совместимый <code>/v1</code>. Для Tessera — адрес
+                      своего сервера без <code>/api</code>.
                     </small>
                   </div>
+
                   <div className="field">
-                    <label htmlFor="api-key">API-ключ</label>
+                    <label htmlFor="api-key">
+                      API-ключ <span className="label-hint">{preset.local ? 'не нужен' : 'хранится локально'}</span>
+                    </label>
                     <input
                       id="api-key"
                       type="password"
                       value={draft.apiKey}
                       onChange={(event) => update('apiKey', event.target.value)}
-                      placeholder="sk-…"
+                      placeholder={preset.local ? 'не требуется' : 'sk-…'}
                       autoComplete="off"
                     />
-                    <small className="field-hint">Хранится только в этом браузере и отправляется на ваш endpoint.</small>
+                    <small className="field-hint">
+                      Ключ не попадает в репозиторий и отправляется только выбранному провайдеру.
+                    </small>
                   </div>
-                  <div className="field-row">
-                    <div className="field">
-                      <label htmlFor="model-name">Модель</label>
+
+                  <div className="field">
+                    <label htmlFor="model-name">Модель</label>
+                    <div className="model-row">
                       <input
                         id="model-name"
                         value={draft.model}
                         onChange={(event) => update('model', event.target.value)}
-                        placeholder="tessera-core"
+                        placeholder={preset.model || 'model-id'}
+                        list="provider-model-list"
                       />
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={loadModels}
+                        disabled={modelsLoading || draft.provider === 'tessera' || !draft.apiBase.trim()}
+                      >
+                        {modelsLoading ? <span className="spinner" /> : <Icon name="refresh" size={15} />}
+                        {modelsLoading ? 'Загрузка…' : 'Загрузить'}
+                      </button>
                     </div>
-                    <div className="field field--narrow">
-                      <label>Температура: {draft.temperature.toFixed(1)}</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={draft.temperature}
-                        onChange={(event) => update('temperature', Number(event.target.value))}
-                      />
-                    </div>
+                    <datalist id="provider-model-list">
+                      {models.map((model) => (
+                        <option key={model} value={model} />
+                      ))}
+                    </datalist>
+                    {models.length > 0 && (
+                      <select
+                        value={models.includes(draft.model) ? draft.model : ''}
+                        onChange={(event) => update('model', event.target.value)}
+                      >
+                        <option value="">Выберите из {models.length} моделей…</option>
+                        {models.map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {modelsError && <small className="field-error">{modelsError}</small>}
+                  </div>
+
+                  <div className="field">
+                    <label>Температура: {draft.temperature.toFixed(1)}</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={draft.temperature}
+                      onChange={(event) => update('temperature', Number(event.target.value))}
+                    />
                   </div>
                 </section>
                 <div className="notice">
                   <Icon name="shield" size={16} />
                   <span>
-                    Для production используйте собственный backend-прокси: ключ не должен попадать в публичный
-                    репозиторий.
+                    Облачные запросы идут напрямую провайдеру. Локальные серверы (Ollama, LM Studio) с
+                    HTTPS-страницы могут блокироваться браузером — тогда используйте Tessera API.
                   </span>
                 </div>
               </>

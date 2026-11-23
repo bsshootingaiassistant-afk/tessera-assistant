@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.tessera.assistant',
+  appId: 'ai.tessera.assistant',
   appName: 'Tessera',
   webDir: 'dist',
   backgroundColor: '#0b0f14',

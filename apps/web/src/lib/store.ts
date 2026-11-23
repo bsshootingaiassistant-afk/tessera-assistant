@@ -31,28 +31,16 @@ export function seededModules(): ModuleIntegration[] {
   const now = Date.now();
   return [
     {
-      id: 'mod_github',
-      name: 'GitHub',
-      kind: 'oauth',
-      description: 'Репозитории, issues, pull requests и релизы.',
-      icon: 'github',
-      enabled: true,
-      status: 'connected',
-      endpoint: 'https://api.github.com',
-      createdAt: now,
-      lastCheckedAt: now,
-    },
-    {
-      id: 'mod_rest',
-      name: 'REST API',
+      id: 'mod_rest_demo',
+      name: 'REST API (пример)',
       kind: 'rest',
-      description: 'Универсальный HTTP-коннектор для любых сервисов.',
+      description: 'Демо-коннектор. Не подключён к вашему аккаунту и не содержит токенов.',
       icon: 'globe',
-      enabled: true,
-      status: 'connected',
+      enabled: false,
+      status: 'disconnected',
       endpoint: 'https://httpbin.org',
       createdAt: now,
-      lastCheckedAt: now,
+      demo: true,
     },
     {
       id: 'mod_files',
@@ -71,7 +59,24 @@ export function loadModules(): ModuleIntegration[] {
   const raw = localStorage.getItem(KEYS.modules);
   if (!raw) return seededModules();
   const parsed = safeJsonParse<ModuleIntegration[]>(raw, []);
-  return Array.isArray(parsed) ? parsed : seededModules();
+  if (!Array.isArray(parsed) || parsed.length === 0) return seededModules();
+
+  // Older builds seeded GitHub/REST as "connected" examples. They were never
+  // authenticated; mark them as demos and disconnect them so nobody mistakes
+  // them for a personal account.
+  return parsed.map((module) => {
+    if (module.id === 'mod_github' || module.id === 'mod_rest') {
+      return {
+        ...module,
+        demo: true,
+        enabled: false,
+        status: 'disconnected',
+        token: undefined,
+        name: module.id === 'mod_github' ? 'GitHub (пример)' : 'REST API (пример)',
+      };
+    }
+    return module;
+  });
 }
 
 export function saveModules(modules: ModuleIntegration[]): void {

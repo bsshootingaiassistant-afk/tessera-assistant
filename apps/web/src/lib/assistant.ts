@@ -201,35 +201,61 @@ export function suggestionsFor(text: string): string[] {
 
 async function* streamFromApi(req: AssistantRequest): AsyncGenerator<string> {
   const base = normalizeBase(req.settings.apiBase);
+  const direct = req.settings.provider !== 'tessera';
   const history = req.messages
     .filter((m) => !m.pending)
     .slice(-20)
     .map((m) => ({ role: m.role, content: m.content }));
 
-  const res = await fetch(`${base}/api/chat`, {
+  const modulesLine = req.modules.length
+    ? req.modules
+        .map((m) => `${m.name} (${m.kind}, ${m.enabled ? 'вкл' : 'выкл'}, ${m.status})`)
+        .join('; ')
+    : 'нет подключённых модулей';
+
+  const system = `Ты Tessera — персональный ИИ-ассистент по модулям и интеграциям.
+Отвечай на русском, кратко и по делу. Помогай подключать REST, webhook, OAuth и MCP-модули,
+объясняй шаги настройки и проверяй статусы. Не выдумывай данные о подключениях.
+Модули приложения: ${modulesLine}.`;
+
+  const endpoint = direct ? `${base}/chat/completions` : `${base}/api/chat`;
+  const body = direct
+    ? {
+        model: req.settings.model,
+        messages: [{ role: 'system', content: system }, ...history],
+        temperature: req.settings.temperature,
+        stream: true,
+      }
+    : {
+        messages: history,
+        model: req.settings.model,
+        temperature: req.settings.temperature,
+        modules: req.modules.map((m) => ({
+          id: m.id,
+          name: m.name,
+          kind: m.kind,
+          enabled: m.enabled,
+          status: m.status,
+        })),
+      };
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(req.settings.apiKey ? { Authorization: `Bearer ${req.settings.apiKey}` } : {}),
     },
-    body: JSON.stringify({
-      messages: history,
-      model: req.settings.model,
-      temperature: req.settings.temperature,
-      modules: req.modules.map((m) => ({
-        id: m.id,
-        name: m.name,
-        kind: m.kind,
-        enabled: m.enabled,
-        status: m.status,
-      })),
-    }),
+    body: JSON.stringify(body),
     signal: req.signal,
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${detail.slice(0, 200) || res.statusText}`);
+    throw new Error(
+      `API ${res.status}: ${detail.slice(0, 240) || res.statusText}${
+        direct ? ' — проверьте ключ, модель и CORS провайдера.' : ''
+      }`,
+    );
   }
 
   const contentType = res.headers.get('content-type') ?? '';

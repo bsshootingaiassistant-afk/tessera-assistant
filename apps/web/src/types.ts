@@ -34,15 +34,30 @@ export interface ModuleIntegration {
   headers?: string;
   createdAt: number;
   lastCheckedAt?: number;
+  demo?: boolean;
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type AccentId = 'indigo' | 'teal' | 'violet' | 'amber';
+export type ProviderId =
+  | 'openai'
+  | 'openrouter'
+  | 'deepseek'
+  | 'mistral'
+  | 'groq'
+  | 'together'
+  | 'fireworks'
+  | 'xai'
+  | 'ollama'
+  | 'lmstudio'
+  | 'tessera'
+  | 'custom';
 
 export interface Settings {
   theme: ThemeMode;
   accent: AccentId;
   locale: 'ru' | 'en';
+  provider: ProviderId;
   apiBase: string;
   apiKey: string;
   model: string;
@@ -58,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   accent: 'indigo',
   locale: 'ru',
+  provider: 'tessera',
   apiBase: '',
   apiKey: '',
   model: 'tessera-core',

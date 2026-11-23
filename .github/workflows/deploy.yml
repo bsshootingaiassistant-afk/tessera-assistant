@@ -126,9 +126,28 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Collect APK
+      - name: Sign APK with stable release key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          cp apps/web/android/app/build/outputs/apk/debug/app-debug.apk tessera-assistant.apk
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/tessera-release.jks"
+            BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            "$BUILD_TOOLS/apksigner" sign \
+              --ks "$RUNNER_TEMP/tessera-release.jks" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --ks-pass "pass:$ANDROID_KEYSTORE_PASSWORD" \
+              --key-pass "pass:$ANDROID_KEY_PASSWORD" \
+              --out tessera-assistant.apk \
+              apps/web/android/app/build/outputs/apk/debug/app-debug.apk
+            "$BUILD_TOOLS/apksigner" verify --print-certs tessera-assistant.apk
+          else
+            cp apps/web/android/app/build/outputs/apk/debug/app-debug.apk tessera-assistant.apk
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is empty — APK uses an ephemeral debug signature."
+          fi
           ls -lh tessera-assistant.apk
 
       - uses: actions/upload-artifact@v4
