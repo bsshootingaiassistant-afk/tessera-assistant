@@ -29,3 +29,7 @@ Thumbs.db
 # logs
 *.log
 npm-debug.log*
+
+# runtime feedback storage
+data/
+feedback.ndjson

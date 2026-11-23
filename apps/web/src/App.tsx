@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AddIntegrationModal } from './components/AddIntegrationModal';
 import { ChatView } from './components/ChatView';
+import { FeedbackModal } from './components/FeedbackModal';
+import { Icon } from './components/Icon';
 import { ModulesPanel } from './components/ModulesPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { Sidebar } from './components/Sidebar';
@@ -54,6 +56,8 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackPage, setFeedbackPage] = useState('Чат');
   const [toast, setToast] = useState<{ kind: ToastKind; text: string } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -374,6 +378,26 @@ export default function App() {
     notify('Все данные очищены');
   };
 
+  const currentPage = settingsOpen
+    ? 'Настройки'
+    : addOpen
+      ? 'Новый модуль'
+      : modulesOpen
+        ? 'Модули'
+        : 'Чат';
+
+  const openFeedback = (page = currentPage) => {
+    setFeedbackPage(page);
+    setFeedbackOpen(true);
+  };
+
+  const openFeedbackFromSettings = (next: Settings) => {
+    setSettings(next);
+    setSettingsOpen(false);
+    openFeedback('Настройки');
+    notify('Режим разработчика включён', 'success');
+  };
+
   const handleSuggestion = (text: string) => {
     if (/открой настройк/i.test(text)) {
       setSettingsOpen(true);
@@ -441,6 +465,29 @@ export default function App() {
         onCheckUpdate={checkUpdates}
         onClearData={clearData}
         onExport={exportData}
+        onOpenFeedback={openFeedbackFromSettings}
+      />
+
+      {settings.developerMode && !feedbackOpen && (
+        <button
+          type="button"
+          className="feedback-fab"
+          onClick={() => openFeedback()}
+          aria-label="Отправить отзыв"
+          title="Отправить отзыв"
+        >
+          <Icon name="chat" size={18} />
+          <span>Отзыв</span>
+        </button>
+      )}
+
+      <FeedbackModal
+        open={feedbackOpen}
+        page={feedbackPage}
+        settings={settings}
+        modules={modules}
+        onClose={() => setFeedbackOpen(false)}
+        onResult={notify}
       />
 
       {release && (

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AccentId, Settings, ThemeMode } from '../types';
 import { cls } from '../lib/utils';
-import { repoSlug } from '../lib/update';
 import { Icon } from './Icon';
 
 interface SettingsModalProps {
@@ -12,9 +11,10 @@ interface SettingsModalProps {
   onCheckUpdate: () => void;
   onClearData: () => void;
   onExport: () => void;
+  onOpenFeedback: (settings: Settings) => void;
 }
 
-type Tab = 'general' | 'ai' | 'updates' | 'data';
+type Tab = 'general' | 'ai' | 'updates' | 'developer' | 'data';
 
 const THEMES: Array<{ value: ThemeMode; label: string; icon: 'monitor' | 'sun' | 'moon' }> = [
   { value: 'system', label: 'Системная', icon: 'monitor' },
@@ -37,6 +37,7 @@ export function SettingsModal({
   onCheckUpdate,
   onClearData,
   onExport,
+  onOpenFeedback,
 }: SettingsModalProps) {
   const [tab, setTab] = useState<Tab>('general');
   const [draft, setDraft] = useState<Settings>(settings);
@@ -90,8 +91,9 @@ export function SettingsModal({
                 ['general', 'Общие', 'settings'],
                 ['ai', 'ИИ и API', 'sparkles'],
                 ['updates', 'Обновления', 'download'],
+                ['developer', 'Разработчик', 'code'],
                 ['data', 'Данные', 'shield'],
-              ] as Array<[Tab, string, 'settings' | 'sparkles' | 'download' | 'shield']>
+              ] as Array<[Tab, string, 'settings' | 'sparkles' | 'download' | 'code' | 'shield']>
             ).map(([id, label, icon]) => (
               <button
                 key={id}
@@ -235,25 +237,15 @@ export function SettingsModal({
             {tab === 'updates' && (
               <>
                 <section className="settings__section">
-                  <h3>Версия и обновления</h3>
-                  <div className="info-grid">
-                    <div>
-                      <span>Текущая версия</span>
-                      <strong>v{__APP_VERSION__}</strong>
-                    </div>
-                    <div>
-                      <span>Репозиторий</span>
-                      <strong>{repoSlug() || 'не настроен'}</strong>
-                    </div>
-                    <div>
-                      <span>Сборка</span>
-                      <strong>{new Date(__BUILD_TIME__).toLocaleDateString('ru-RU')}</strong>
-                    </div>
+                  <h3>Обновления</h3>
+                  <div className="version-row">
+                    <span>Текущая версия</span>
+                    <strong>v{__APP_VERSION__}</strong>
                   </div>
                   <label className="toggle-row">
                     <span>
-                      <strong>Проверять обновления автоматически</strong>
-                      <small>При запуске приложение запрашивает последний релиз GitHub</small>
+                      <strong>Проверять автоматически</strong>
+                      <small>При запуске приложение ищет новый релиз</small>
                     </span>
                     <input
                       type="checkbox"
@@ -263,25 +255,67 @@ export function SettingsModal({
                   </label>
                   <button type="button" className="primary-btn" onClick={onCheckUpdate}>
                     <Icon name="refresh" size={16} />
-                    Проверить сейчас
+                    Проверить обновления
                   </button>
-                  {repoSlug() && (
-                    <a
-                      className="link-row"
-                      href={`https://github.com/${repoSlug()}/releases`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Icon name="external" size={15} />
-                      Все релизы на GitHub
-                    </a>
-                  )}
                 </section>
                 <div className="notice">
                   <Icon name="download" size={16} />
+                  <span>Android обновляется из APK, веб-версия — при следующей загрузке.</span>
+                </div>
+              </>
+            )}
+
+            {tab === 'developer' && (
+              <>
+                <section className="settings__section">
+                  <h3>Режим разработчика</h3>
+                  <label className="toggle-row">
+                    <span>
+                      <strong>Показывать кнопку «Отзыв»</strong>
+                      <small>Кнопка доступна на всех экранах: чат, модули, настройки</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={draft.developerMode}
+                      onChange={(event) => update('developerMode', event.target.checked)}
+                    />
+                  </label>
+
+                  <div className="field">
+                    <label htmlFor="feedback-endpoint">
+                      Endpoint отзывов <span className="label-hint">необязательно</span>
+                    </label>
+                    <input
+                      id="feedback-endpoint"
+                      value={draft.feedbackEndpoint}
+                      onChange={(event) => update('feedbackEndpoint', event.target.value)}
+                      placeholder="https://api.example.com"
+                      inputMode="url"
+                    />
+                    <small className="field-hint">
+                      POST <code>/api/feedback</code> с JSON. Если пусто — откроется публичная форма GitHub Issues.
+                    </small>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    disabled={!draft.developerMode}
+                    onClick={() => onOpenFeedback(draft)}
+                  >
+                    <Icon name="chat" size={16} />
+                    Открыть форму отзыва
+                  </button>
+                  <small className="field-hint">
+                    Включите режим разработчика, чтобы кнопка отзывов появилась поверх любого экрана.
+                  </small>
+                </section>
+
+                <div className="notice">
+                  <Icon name="shield" size={16} />
                   <span>
-                    Android-версия обновляется из APK в релизах. Веб-версия обновляется автоматически при
-                    каждом деплое.
+                    Приложение не запрашивает GitHub-логин и не хранит токены. Если используется GitHub
+                    Issues, вход выполняется в браузере только в момент отправки.
                   </span>
                 </div>
               </>

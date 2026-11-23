@@ -50,6 +50,8 @@ export interface Settings {
   autoUpdate: boolean;
   compact: boolean;
   sendOnEnter: boolean;
+  developerMode: boolean;
+  feedbackEndpoint: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -63,6 +65,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoUpdate: true,
   compact: false,
   sendOnEnter: true,
+  developerMode: false,
+  feedbackEndpoint: '',
 };
 
 export interface ReleaseInfo {
