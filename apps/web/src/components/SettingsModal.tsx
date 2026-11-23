@@ -246,7 +246,7 @@ export function SettingsModal({
                       id="api-base"
                       value={draft.apiBase}
                       onChange={(event) => update('apiBase', event.target.value)}
-                      placeholder="https://api.example.com/v1"
+                      placeholder={preset.baseUrl || 'https://api.example.com/v1'}
                       inputMode="url"
                     />
                     <small className="field-hint">
@@ -257,14 +257,17 @@ export function SettingsModal({
 
                   <div className="field">
                     <label htmlFor="api-key">
-                      API-ключ <span className="label-hint">{preset.local ? 'не нужен' : 'хранится локально'}</span>
+                      API-ключ{' '}
+                      <span className="label-hint">
+                        {preset.local || preset.id === 'tessera' ? 'не нужен' : 'хранится локально'}
+                      </span>
                     </label>
                     <input
                       id="api-key"
                       type="password"
                       value={draft.apiKey}
                       onChange={(event) => update('apiKey', event.target.value)}
-                      placeholder={preset.local ? 'не требуется' : 'sk-…'}
+                      placeholder={preset.local || preset.id === 'tessera' ? 'не требуется' : 'sk-…'}
                       autoComplete="off"
                     />
                     <small className="field-hint">
