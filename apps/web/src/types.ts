@@ -81,7 +81,7 @@ export const DEFAULT_SETTINGS: Settings = {
   provider: 'tessera',
   apiBase: '',
   apiKey: '',
-  model: 'tessera-core',
+  model: 'gpt-oss:20b',
   temperature: 0.4,
   autoUpdate: true,
   compact: false,
@@ -102,4 +102,17 @@ export interface ReleaseInfo {
   apkUrl: string | null;
   notes: string;
   publishedAt: string;
+}
+
+export type RemoteJobStatus = 'queued' | 'running' | 'done' | 'failed';
+
+export interface RemoteJob {
+  id: string;
+  prompt: string;
+  model: string;
+  status: RemoteJobStatus;
+  result: string;
+  error: string;
+  createdAt: number;
+  updatedAt: number;
 }

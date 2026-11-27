@@ -14,6 +14,7 @@ interface ChatViewProps {
   onOpenModules: () => void;
   onOpenSettings: () => void;
   onOpenPython: () => void;
+  onOpenJobs: () => void;
   onOpenSidebar: () => void;
   onSuggestion: (text: string) => void;
   onNewChat: () => void;
@@ -35,6 +36,7 @@ export function ChatView({
   onOpenModules,
   onOpenSettings,
   onOpenPython,
+  onOpenJobs,
   onOpenSidebar,
   onSuggestion,
   onNewChat,
@@ -107,6 +109,10 @@ export function ChatView({
           </div>
         </div>
         <div className="chat__actions">
+          <button type="button" className="ghost-btn" onClick={onOpenJobs} title="Задачи на ПК">
+            <Icon name="layers" size={17} />
+            <span>ПК</span>
+          </button>
           <button type="button" className="ghost-btn" onClick={onOpenModules}>
             <Icon name="modules" size={17} />
             <span>Модули</span>

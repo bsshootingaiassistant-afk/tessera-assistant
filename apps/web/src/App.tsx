@@ -3,12 +3,14 @@ import { AddIntegrationModal } from './components/AddIntegrationModal';
 import { ChatView } from './components/ChatView';
 import { FeedbackModal } from './components/FeedbackModal';
 import { Icon } from './components/Icon';
+import { JobsModal } from './components/JobsModal';
 import { ModulesPanel } from './components/ModulesPanel';
 import { PythonModal } from './components/PythonModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Sidebar } from './components/Sidebar';
 import { UpdateBanner } from './components/UpdateBanner';
 import { streamAssistant, suggestionsFor } from './lib/assistant';
+import { fetchJob, loadJobs, saveJobs, submitJob } from './lib/jobs';
 import { testModule } from './lib/modules';
 import {
   clearAllData,
@@ -27,7 +29,7 @@ import {
 } from './lib/store';
 import { checkForRelease, installRelease, isNewerVersion } from './lib/update';
 import { cls, truncate, uid } from './lib/utils';
-import { Chat, ChatMessage, ModuleIntegration, ModuleKind, ReleaseInfo, Settings } from './types';
+import { Chat, ChatMessage, ModuleIntegration, ModuleKind, ReleaseInfo, RemoteJob, Settings } from './types';
 
 type ToastKind = 'info' | 'success' | 'error';
 
@@ -60,10 +62,14 @@ export default function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackPage, setFeedbackPage] = useState('Чат');
   const [pythonOpen, setPythonOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const [jobs, setJobs] = useState<RemoteJob[]>(loadJobs);
+  const [jobSubmitting, setJobSubmitting] = useState(false);
   const [toast, setToast] = useState<{ kind: ToastKind; text: string } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
+  const notifiedJobs = useRef<Set<string>>(new Set());
 
   const activeChat = chats.find((chat) => chat.id === activeChatId) ?? chats[0];
 
@@ -76,6 +82,79 @@ export default function App() {
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveModules(modules), [modules]);
   useEffect(() => saveChats(chats), [chats]);
+  useEffect(() => saveJobs(jobs), [jobs]);
+
+  useEffect(() => {
+    const active = jobs.filter((job) => job.status === 'queued' || job.status === 'running');
+    if (active.length === 0 || !settings.apiBase.trim() || !settings.apiKey.trim()) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      for (const job of active) {
+        try {
+          const update = await fetchJob(settings, job.id);
+          if (cancelled) return;
+          setJobs((prev) => {
+            let changed = false;
+            const next = prev.map((item) => {
+              if (item.id !== job.id) return item;
+              const status = update.status ?? item.status;
+              const result = update.result ?? item.result;
+              const error = update.error ?? item.error;
+              if (status === item.status && result === item.result && error === item.error) {
+                return item;
+              }
+              changed = true;
+              return { ...item, status, result, error, updatedAt: Date.now() };
+            });
+            return changed ? next : prev;
+          });
+          if (update.status === 'done' && !notifiedJobs.current.has(job.id)) {
+            notifiedJobs.current.add(job.id);
+            const result = update.result ?? '';
+            notify('Задача на ПК готова', 'success');
+            setChats((prev) =>
+              prev.map((chat) =>
+                chat.id === activeChatId
+                  ? {
+                      ...chat,
+                      updatedAt: Date.now(),
+                      messages: [
+                        ...chat.messages,
+                        {
+                          id: uid('msg'),
+                          role: 'assistant',
+                          createdAt: Date.now(),
+                          content: `**Задача на ПК завершена**\n\n${result.slice(0, 8000)}`,
+                        },
+                      ],
+                    }
+                  : chat,
+              ),
+            );
+            try {
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Tessera: задача на ПК готова', {
+                  body: job.prompt.slice(0, 140),
+                });
+              }
+            } catch {
+              // WebView may not expose Notification.
+            }
+          }
+        } catch {
+          // Worker may be offline; keep the job and retry on next tick.
+        }
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [jobs, settings, activeChatId, notify]);
   useEffect(() => {
     if (activeChatId) saveActiveChatId(activeChatId);
   }, [activeChatId]);
@@ -319,6 +398,83 @@ export default function App() {
     notify('Настройки сохранены', 'success');
   };
 
+  const submitRemoteJob = async (prompt: string) => {
+    setJobSubmitting(true);
+    try {
+      const job = await submitJob(settings, prompt);
+      setJobs((prev) => [job, ...prev]);
+      notify('Задача отправлена на ПК', 'success');
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          void Notification.requestPermission();
+        }
+      } catch {
+        // WebView may not expose Notification.
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Не удалось отправить задачу', 'error');
+    } finally {
+      setJobSubmitting(false);
+    }
+  };
+
+  const refreshRemoteJobs = async () => {
+    const active = jobs.filter((job) => job.status === 'queued' || job.status === 'running');
+    for (const job of active) {
+      try {
+        const update = await fetchJob(settings, job.id);
+        setJobs((prev) =>
+          prev.map((item) =>
+            item.id === job.id
+              ? {
+                  ...item,
+                  status: update.status ?? item.status,
+                  result: update.result ?? item.result,
+                  error: update.error ?? item.error,
+                  updatedAt: Date.now(),
+                }
+              : item,
+          ),
+        );
+      } catch {
+        notify('Worker не отвечает', 'error');
+        return;
+      }
+    }
+    notify('Статусы обновлены');
+  };
+
+  const clearRemoteJobs = () => {
+    setJobs((prev) => prev.filter((job) => job.status === 'queued' || job.status === 'running'));
+    notify('История задач очищена');
+  };
+
+  const useRemoteJobResult = (result: string) => {
+    const chat = activeChat;
+    if (!chat) return;
+    setChats((prev) =>
+      prev.map((item) =>
+        item.id === chat.id
+          ? {
+              ...item,
+              updatedAt: Date.now(),
+              messages: [
+                ...item.messages,
+                {
+                  id: uid('msg'),
+                  role: 'assistant',
+                  createdAt: Date.now(),
+                  content: `**Результат с ПК**\n\n${result.slice(0, 8000)}`,
+                },
+              ],
+            }
+          : item,
+      ),
+    );
+    setJobsOpen(false);
+    notify('Результат добавлен в чат', 'success');
+  };
+
   const checkUpdates = async () => {
     const latest = await checkForRelease();
     if (!latest) {
@@ -436,6 +592,7 @@ export default function App() {
         onOpenModules={() => setModulesOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenPython={() => setPythonOpen(true)}
+        onOpenJobs={() => setJobsOpen(true)}
         onOpenSidebar={() => setSidebarOpen(true)}
         onSuggestion={handleSuggestion}
         onNewChat={newChat}
@@ -497,6 +654,18 @@ export default function App() {
         open={pythonOpen}
         onClose={() => setPythonOpen(false)}
         onResult={notify}
+      />
+
+      <JobsModal
+        open={jobsOpen}
+        settings={settings}
+        jobs={jobs}
+        submitting={jobSubmitting}
+        onClose={() => setJobsOpen(false)}
+        onSubmit={submitRemoteJob}
+        onRefresh={refreshRemoteJobs}
+        onClear={clearRemoteJobs}
+        onUseResult={useRemoteJobResult}
       />
 
       {release && (
