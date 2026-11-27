@@ -38,3 +38,7 @@ feedback.ndjson
 
 __pycache__/
 *.pyc
+
+worker/tunnel-url.txt
+worker/cloudflared*.log
+worker/tunnel-url.txt
