@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field
 
 OLLAMA = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
 TOKEN = os.getenv("WORKER_TOKEN", "")
+NTFY_TOPIC = os.getenv("NTFY_TOPIC", "").strip()
+NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
 DEFAULT_MODEL = os.getenv("WORKER_MODEL", "gpt-oss:20b")
 ALLOWED_MODELS = [
     "gpt-oss:20b",
@@ -198,6 +200,25 @@ def run_python(body: PythonRequest) -> dict[str, Any]:
         }
 
 
+def notify_phone(title: str, message: str, priority: str = "default") -> None:
+    if not NTFY_TOPIC:
+        return
+    try:
+        httpx.post(
+            f"{NTFY_SERVER}/{NTFY_TOPIC}",
+            content=message.encode("utf-8"),
+            headers={
+                "Title": title.encode("ascii", "ignore").decode("ascii") or "Tessera",
+                "Priority": priority,
+                "Tags": "robot",
+            },
+            timeout=10,
+        )
+    except Exception:
+        # Notifications must never fail the job itself.
+        pass
+
+
 def run_job(job: Job) -> None:
     with JOBS_LOCK:
         job.status = "running"
@@ -222,6 +243,10 @@ def run_job(job: Job) -> None:
         job.status = "failed"
     finally:
         job.updated_at = time.time()
+        if job.status == "done":
+            notify_phone("Tessera: task done", f"{job.prompt[:120]}\n\n{job.result[:400]}")
+        elif job.status == "failed":
+            notify_phone("Tessera: task failed", f"{job.prompt[:120]}\n\n{job.error[:300]}", "high")
 
 
 @app.post("/api/jobs", dependencies=[Depends(require_token)])
