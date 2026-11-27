@@ -13,6 +13,7 @@ interface ChatViewProps {
   onStop: () => void;
   onOpenModules: () => void;
   onOpenSettings: () => void;
+  onOpenPython: () => void;
   onOpenSidebar: () => void;
   onSuggestion: (text: string) => void;
   onNewChat: () => void;
@@ -33,6 +34,7 @@ export function ChatView({
   onStop,
   onOpenModules,
   onOpenSettings,
+  onOpenPython,
   onOpenSidebar,
   onSuggestion,
   onNewChat,
@@ -185,6 +187,15 @@ export function ChatView({
             aria-label="Модули"
           >
             <Icon name="puzzle" size={19} />
+          </button>
+          <button
+            type="button"
+            className="composer__tool"
+            onClick={onOpenPython}
+            title="Python"
+            aria-label="Python"
+          >
+            <Icon name="code" size={19} />
           </button>
           <textarea
             ref={textareaRef}

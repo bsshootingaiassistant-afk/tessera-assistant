@@ -106,10 +106,10 @@ export const PROVIDERS: ProviderPreset[] = [
   {
     id: 'tessera',
     name: 'Tessera API (свой сервер)',
-    baseUrl: 'http://localhost:3000',
-    model: 'tessera-core',
+    baseUrl: 'http://localhost:8787',
+    model: 'gpt-oss:20b',
     docsUrl: '',
-    hint: 'Собственный сервер Tessera: POST /api/chat, ключ не нужен.',
+    hint: 'Собственный worker на ПК через Cloudflare Tunnel; ключ — WORKER_TOKEN.',
   },
   {
     id: 'custom',
@@ -139,15 +139,15 @@ function modelsEndpoint(provider: ProviderId, base: string): string {
   if (provider === 'ollama') {
     return new URL('/api/tags', base.endsWith('/') ? base : `${base}/`).toString();
   }
+  if (provider === 'tessera') {
+    return `${base}/api/models`;
+  }
   return `${base}/models`;
 }
 
 export async function fetchProviderModels(settings: Settings): Promise<string[]> {
   const base = normalizeBase(settings.apiBase);
   if (!base) throw new Error('Сначала укажите base URL провайдера.');
-  if (settings.provider === 'tessera') {
-    throw new Error('У Tessera-сервера нет каталога моделей — введите модель вручную.');
-  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -163,14 +163,16 @@ export async function fetchProviderModels(settings: Settings): Promise<string[]>
     }
 
     const data = (await response.json()) as {
-      data?: Array<{ id?: string }>;
-      models?: Array<{ name?: string; id?: string }>;
+      data?: Array<string | { id?: string }>;
+      models?: Array<string | { name?: string; id?: string }>;
     };
 
-    const list =
-      data.data?.map((item) => item.id).filter((id): id is string => Boolean(id)) ??
-      data.models?.map((item) => item.name ?? item.id).filter((id): id is string => Boolean(id)) ??
-      [];
+    const raw = data.data ?? data.models ?? [];
+    const list = raw
+      .map((item) =>
+        typeof item === 'string' ? item : item.id ?? ('name' in item ? item.name : undefined),
+      )
+      .filter((id): id is string => Boolean(id));
 
     return [...new Set(list)].sort((a, b) => a.localeCompare(b));
   } catch (error) {

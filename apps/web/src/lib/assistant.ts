@@ -1,5 +1,6 @@
 import { ChatMessage, ModuleIntegration, Settings } from '../types';
 import { normalizeBase, sleep } from './utils';
+import { runSubagents, shouldUseSubagents, subagentContext } from './subagents';
 
 export interface AssistantRequest {
   messages: ChatMessage[];
@@ -218,16 +219,29 @@ async function* streamFromApi(req: AssistantRequest): AsyncGenerator<string> {
 объясняй шаги настройки и проверяй статусы. Не выдумывай данные о подключениях.
 Модули приложения: ${modulesLine}.`;
 
+  const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
+  let subagentBlock = '';
+  if (lastUser && shouldUseSubagents(req.settings.subagentMode, lastUser.content)) {
+    const results = await runSubagents(lastUser.content, req.settings, req.signal);
+    if (results.length > 0) {
+      subagentBlock = `\n\nРезультаты субагентов (используй как проверочный материал, но отвечай сам):\n${subagentContext(
+        results,
+      )}`;
+    }
+  }
+
   const endpoint = direct ? `${base}/chat/completions` : `${base}/api/chat`;
   const body = direct
     ? {
         model: req.settings.model,
-        messages: [{ role: 'system', content: system }, ...history],
+        messages: [{ role: 'system', content: system + subagentBlock }, ...history],
         temperature: req.settings.temperature,
         stream: true,
       }
     : {
-        messages: history,
+        messages: subagentBlock
+          ? [{ role: 'system', content: subagentBlock }, ...history]
+          : history,
         model: req.settings.model,
         temperature: req.settings.temperature,
         modules: req.modules.map((m) => ({

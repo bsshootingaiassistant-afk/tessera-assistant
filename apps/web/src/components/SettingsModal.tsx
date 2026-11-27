@@ -15,7 +15,7 @@ interface SettingsModalProps {
   onOpenFeedback: (settings: Settings) => void;
 }
 
-type Tab = 'general' | 'ai' | 'updates' | 'developer' | 'data';
+type Tab = 'general' | 'ai' | 'subagents' | 'updates' | 'developer' | 'data';
 
 const THEMES: Array<{ value: ThemeMode; label: string; icon: 'monitor' | 'sun' | 'moon' }> = [
   { value: 'system', label: 'Системная', icon: 'monitor' },
@@ -123,10 +123,11 @@ export function SettingsModal({
               [
                 ['general', 'Общие', 'settings'],
                 ['ai', 'ИИ и API', 'sparkles'],
+                ['subagents', 'Субагенты', 'layers'],
                 ['updates', 'Обновления', 'download'],
                 ['developer', 'Разработчик', 'code'],
                 ['data', 'Данные', 'shield'],
-              ] as Array<[Tab, string, 'settings' | 'sparkles' | 'download' | 'code' | 'shield']>
+              ] as Array<[Tab, string, 'settings' | 'sparkles' | 'layers' | 'download' | 'code' | 'shield']>
             ).map(([id, label, icon]) => (
               <button
                 key={id}
@@ -202,6 +203,87 @@ export function SettingsModal({
                     />
                   </label>
                 </section>
+              </>
+            )}
+
+            {tab === 'subagents' && (
+              <>
+                <section className="settings__section">
+                  <h3>Субагенты</h3>
+                  <div className="field">
+                    <label>Режим</label>
+                    <div className="segmented">
+                      {(
+                        [
+                          ['off', 'ВЫКЛ'],
+                          ['auto', 'АВТО'],
+                          ['on', 'ВКЛ'],
+                        ] as const
+                      ).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={cls(draft.subagentMode === mode && 'is-active')}
+                          onClick={() => update('subagentMode', mode)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <small className="field-hint">
+                      ВЫКЛ — только основная модель. АВТО — субагенты для рутины. ВКЛ — всегда параллельно.
+                    </small>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="subagent-key">
+                      Ключ OpenRouter <span className="label-hint">для субагентов</span>
+                    </label>
+                    <input
+                      id="subagent-key"
+                      type="password"
+                      value={draft.subagentKey}
+                      onChange={(event) => update('subagentKey', event.target.value)}
+                      placeholder="sk-or-v1-…"
+                      autoComplete="off"
+                    />
+                    <small className="field-hint">Хранится на устройстве, не попадает в APK и репозиторий.</small>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="subagent-models">Модели через запятую</label>
+                    <textarea
+                      id="subagent-models"
+                      value={draft.subagentModels}
+                      onChange={(event) => update('subagentModels', event.target.value)}
+                      rows={3}
+                      className="mono"
+                      placeholder="meta-llama/llama-3.3-70b-instruct:free, google/gemini-2.0-flash-exp:free"
+                    />
+                    <small className="field-hint">
+                      Бесплатные модели помечаются суффиксом <code>:free</code>. Порядок — это fallback.
+                    </small>
+                  </div>
+
+                  <div className="field">
+                    <label>Максимум параллельно: {draft.subagentMax}</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="4"
+                      step="1"
+                      value={draft.subagentMax}
+                      onChange={(event) => update('subagentMax', Number(event.target.value))}
+                    />
+                  </div>
+                </section>
+                <div className="notice">
+                  <Icon name="layers" size={16} />
+                  <span>
+                    Субагенты готовят материал и проверяют рутину, но отвечает всегда выбранная основная
+                    модель. Если ключ не задан, режим игнорируется.
+                  </span>
+                </div>
               </>
             )}
 
@@ -289,7 +371,7 @@ export function SettingsModal({
                         type="button"
                         className="ghost-btn"
                         onClick={loadModels}
-                        disabled={modelsLoading || draft.provider === 'tessera' || !draft.apiBase.trim()}
+                        disabled={modelsLoading || !draft.apiBase.trim()}
                       >
                         {modelsLoading ? <span className="spinner" /> : <Icon name="refresh" size={15} />}
                         {modelsLoading ? 'Загрузка…' : 'Загрузить'}

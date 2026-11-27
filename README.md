@@ -250,6 +250,51 @@ npm run dev:api
 
 ---
 
+## Python на Android
+
+Кнопка **`<>`** в поле ввода открывает Python-песочницу на Pyodide (WASM):
+
+- работает локально в WebView, без сервера;
+- поддерживает `numpy`, `pandas`, `scipy`, `sympy` (пакеты подгружаются при импорте);
+- первый запуск скачивает runtime, дальше — из кэша браузера;
+- для тяжёлых библиотек и файловых операций используйте Python-воркер на ПК.
+
+## Субагенты
+
+**Настройки → Субагенты**:
+
+| Режим | Поведение |
+| --- | --- |
+| ВЫКЛ | только выбранная основная модель |
+| АВТО | субагенты для рутины: перевод, извлечение, списки, проверки |
+| ВКЛ | всегда 2–4 параллельных субагента |
+
+Ключ OpenRouter вводится вручную и хранится на устройстве. Субагенты готовят материал, а финальный ответ всегда даёт основная модель.
+
+## Удалённый worker на ПК
+
+`worker/` — FastAPI-сервис для локальных моделей Ollama, Python и долгих задач.
+
+```powershell
+cd worker
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+$env:WORKER_TOKEN = "<токен>"
+.\.venv\Scripts\python -m uvicorn app:app --host 127.0.0.1 --port 8787
+```
+
+Эндпоинты: `/api/chat`, `/api/python`, `/api/jobs`, `/api/models`, `/api/health`.
+
+Публикация через Cloudflare Tunnel:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:8787
+```
+
+В Tessera: **Настройки → ИИ и API → Tessera Server**, Base URL — выданный `https://*.trycloudflare.com`, API-ключ — `WORKER_TOKEN`. Для постоянного адреса нужен named tunnel и домен в Cloudflare.
+
+---
+
 ## Сборка Android APK
 
 APK собирается в CI и публикуется в GitHub Releases. Локально — см. выше.

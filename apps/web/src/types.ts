@@ -39,6 +39,7 @@ export interface ModuleIntegration {
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type AccentId = 'indigo' | 'teal' | 'violet' | 'amber';
+export type SubagentMode = 'on' | 'auto' | 'off';
 export type ProviderId =
   | 'openai'
   | 'openrouter'
@@ -67,6 +68,10 @@ export interface Settings {
   sendOnEnter: boolean;
   developerMode: boolean;
   feedbackEndpoint: string;
+  subagentMode: SubagentMode;
+  subagentKey: string;
+  subagentModels: string;
+  subagentMax: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -83,6 +88,11 @@ export const DEFAULT_SETTINGS: Settings = {
   sendOnEnter: true,
   developerMode: false,
   feedbackEndpoint: '',
+  subagentMode: 'off',
+  subagentKey: '',
+  subagentModels:
+    'meta-llama/llama-3.3-70b-instruct:free,google/gemini-2.0-flash-exp:free',
+  subagentMax: 2,
 };
 
 export interface ReleaseInfo {

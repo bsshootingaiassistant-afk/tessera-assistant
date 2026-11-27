@@ -4,6 +4,7 @@ import { ChatView } from './components/ChatView';
 import { FeedbackModal } from './components/FeedbackModal';
 import { Icon } from './components/Icon';
 import { ModulesPanel } from './components/ModulesPanel';
+import { PythonModal } from './components/PythonModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Sidebar } from './components/Sidebar';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -58,6 +59,7 @@ export default function App() {
   const [installing, setInstalling] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackPage, setFeedbackPage] = useState('Чат');
+  const [pythonOpen, setPythonOpen] = useState(false);
   const [toast, setToast] = useState<{ kind: ToastKind; text: string } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -433,6 +435,7 @@ export default function App() {
         onStop={stopStreaming}
         onOpenModules={() => setModulesOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenPython={() => setPythonOpen(true)}
         onOpenSidebar={() => setSidebarOpen(true)}
         onSuggestion={handleSuggestion}
         onNewChat={newChat}
@@ -487,6 +490,12 @@ export default function App() {
         settings={settings}
         modules={modules}
         onClose={() => setFeedbackOpen(false)}
+        onResult={notify}
+      />
+
+      <PythonModal
+        open={pythonOpen}
+        onClose={() => setPythonOpen(false)}
         onResult={notify}
       />
 
