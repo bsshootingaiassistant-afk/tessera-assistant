@@ -20,6 +20,10 @@ if (Test-Path $envFile) {
 
 $python = $env:TESSERA_PYTHON
 if (-not $python) {
+  $bundled = Join-Path $env:USERPROFILE '.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe'
+  if (Test-Path $bundled) { $python = $bundled }
+}
+if (-not $python) {
   $python = (Get-Command python -ErrorAction SilentlyContinue).Source
 }
 if (-not $python -or -not (Test-Path $python)) {
