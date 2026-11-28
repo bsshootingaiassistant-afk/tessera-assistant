@@ -27,7 +27,7 @@ import {
   seededChats,
   seededModules,
 } from './lib/store';
-import { checkForRelease, installRelease, isNewerVersion } from './lib/update';
+import { checkForRelease, installRelease, isNewerVersion, InstallStage } from './lib/update';
 import { cls, truncate, uid } from './lib/utils';
 import { Chat, ChatMessage, ModuleIntegration, ModuleKind, ReleaseInfo, RemoteJob, Settings } from './types';
 
@@ -59,6 +59,7 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [release, setRelease] = useState<ReleaseInfo | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [installStage, setInstallStage] = useState<InstallStage | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackPage, setFeedbackPage] = useState('Чат');
   const [pythonOpen, setPythonOpen] = useState(false);
@@ -485,16 +486,25 @@ export default function App() {
       setRelease(latest);
       saveDismissedRelease('');
       notify(`Доступна версия v${latest.version}`, 'info');
+      if (settings.autoInstall) {
+        setTimeout(() => void runInstall(latest), 350);
+      }
     } else {
       notify('У вас последняя версия', 'success');
     }
   };
 
-  const runInstall = async () => {
-    if (!release) return;
+  const runInstall = async (target: ReleaseInfo | null = release) => {
+    if (!target) return;
     setInstalling(true);
-    const result = await installRelease(release);
+    setInstallStage('downloading');
+    notify(`Скачиваю APK v${target.version}…`, 'info');
+    const result = await installRelease(target, (stage) => {
+      setInstallStage(stage);
+      if (stage === 'opening') notify('Открываю системный установщик…', 'info');
+    });
     setInstalling(false);
+    setInstallStage(null);
     if (result === 'installed') notify('Установщик APK открыт', 'success');
     else if (result === 'opened') notify('Загрузка открыта в браузере', 'info');
     else notify('Не удалось запустить установку. Скачайте APK вручную.', 'error');
@@ -672,7 +682,8 @@ export default function App() {
         <UpdateBanner
           release={release}
           installing={installing}
-          onInstall={runInstall}
+          stage={installStage}
+          onInstall={() => void runInstall()}
           onDismiss={dismissRelease}
         />
       )}

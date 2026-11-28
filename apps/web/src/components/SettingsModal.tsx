@@ -439,14 +439,28 @@ export function SettingsModal({
                       onChange={(event) => update('autoUpdate', event.target.checked)}
                     />
                   </label>
+                  <label className="toggle-row">
+                    <span>
+                      <strong>Устанавливать сразу</strong>
+                      <small>Скачать APK и открыть системный установщик без лишнего нажатия</small>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={draft.autoInstall}
+                      onChange={(event) => update('autoInstall', event.target.checked)}
+                    />
+                  </label>
                   <button type="button" className="primary-btn" onClick={onCheckUpdate}>
                     <Icon name="refresh" size={16} />
-                    Проверить обновления
+                    Проверить и установить
                   </button>
                 </section>
                 <div className="notice">
                   <Icon name="download" size={16} />
-                  <span>Android обновляется из APK, веб-версия — при следующей загрузке.</span>
+                  <span>
+                    Android: APK скачается и откроется системный установщик. Полностью безмолвная установка
+                    невозможна без Device Owner; подтверждение «Установить» остаётся.
+                  </span>
                 </div>
               </>
             )}

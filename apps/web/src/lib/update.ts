@@ -53,6 +53,7 @@ export async function checkForRelease(): Promise<ReleaseInfo | null> {
 }
 
 export type InstallResult = 'installed' | 'opened' | 'failed';
+export type InstallStage = 'downloading' | 'opening' | 'fallback';
 
 async function openExternal(url: string): Promise<void> {
   try {
@@ -62,15 +63,20 @@ async function openExternal(url: string): Promise<void> {
   }
 }
 
-export async function installRelease(release: ReleaseInfo): Promise<InstallResult> {
+export async function installRelease(
+  release: ReleaseInfo,
+  onStage?: (stage: InstallStage) => void,
+): Promise<InstallResult> {
   const url = release.apkUrl ?? release.url;
 
   if (!isNativeAndroid() || !release.apkUrl) {
+    onStage?.('fallback');
     await openExternal(url);
     return 'opened';
   }
 
   try {
+    onStage?.('downloading');
     const fileName = `tessera-${release.version}.apk`;
     const result = await Filesystem.downloadFile({
       url: release.apkUrl,
@@ -87,6 +93,7 @@ export async function installRelease(release: ReleaseInfo): Promise<InstallResul
     await sleep(250);
     const opener = window.cordova?.plugins?.fileOpener2;
     if (opener && filePath) {
+      onStage?.('opening');
       await opener.open({
         filePath,
         contentType: 'application/vnd.android.package-archive',
@@ -95,9 +102,11 @@ export async function installRelease(release: ReleaseInfo): Promise<InstallResul
       return 'installed';
     }
 
+    onStage?.('fallback');
     await openExternal(release.apkUrl);
     return 'opened';
   } catch {
+    onStage?.('fallback');
     await openExternal(url);
     return isNativeIos() ? 'opened' : 'failed';
   }

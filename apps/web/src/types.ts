@@ -64,6 +64,7 @@ export interface Settings {
   model: string;
   temperature: number;
   autoUpdate: boolean;
+  autoInstall: boolean;
   compact: boolean;
   sendOnEnter: boolean;
   developerMode: boolean;
@@ -84,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
   model: 'gpt-oss:20b',
   temperature: 0.4,
   autoUpdate: true,
+  autoInstall: true,
   compact: false,
   sendOnEnter: true,
   developerMode: false,
