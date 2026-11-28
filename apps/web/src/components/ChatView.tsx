@@ -15,6 +15,7 @@ interface ChatViewProps {
   onOpenSettings: () => void;
   onOpenPython: () => void;
   onOpenJobs: () => void;
+  onOpenRuntime: () => void;
   onOpenSidebar: () => void;
   onSuggestion: (text: string) => void;
   onNewChat: () => void;
@@ -37,6 +38,7 @@ export function ChatView({
   onOpenSettings,
   onOpenPython,
   onOpenJobs,
+  onOpenRuntime,
   onOpenSidebar,
   onSuggestion,
   onNewChat,
@@ -109,6 +111,10 @@ export function ChatView({
           </div>
         </div>
         <div className="chat__actions">
+          <button type="button" className="ghost-btn" onClick={onOpenRuntime} title="Tessera Runtime">
+            <Icon name="bot" size={17} />
+            <span>Агент</span>
+          </button>
           <button type="button" className="ghost-btn" onClick={onOpenJobs} title="Задачи на ПК">
             <Icon name="layers" size={17} />
             <span>ПК</span>

@@ -5,6 +5,10 @@ interface PyodideRuntime {
   runPythonAsync: (code: string) => Promise<unknown>;
   loadPackage: (packages: string | string[]) => Promise<void>;
   globals: { set: (name: string, value: unknown) => void };
+  FS: {
+    mkdirTree: (path: string) => void;
+    writeFile: (path: string, data: string) => void;
+  };
 }
 
 let runtimePromise: Promise<PyodideRuntime> | null = null;
@@ -51,18 +55,35 @@ export interface PythonResult {
   seconds: number;
 }
 
-export async function runPython(code: string): Promise<PythonResult> {
+export async function runPython(
+  code: string,
+  files?: Record<string, string>,
+  pluginRoot = '/plugins',
+): Promise<PythonResult> {
   const started = performance.now();
   const runtime = await getRuntime();
 
+  if (files) {
+    for (const [relative, content] of Object.entries(files)) {
+      if (relative.includes('..')) continue;
+      const target = `${pluginRoot}/${relative.replace(/^\/+/, '')}`;
+      const slash = target.lastIndexOf('/');
+      if (slash > 0) runtime.FS.mkdirTree(target.slice(0, slash));
+      runtime.FS.writeFile(target, content);
+    }
+  }
+
+  const prelude = files ? `import sys\nif '${pluginRoot}' not in sys.path:\n    sys.path.insert(0, '${pluginRoot}')\n` : '';
+  const fullCode = prelude + code;
+
   const packages = ['numpy', 'pandas', 'scipy', 'sympy'].filter(
-    (name) => code.includes(`import ${name}`) || code.includes(`from ${name}`),
+    (name) => fullCode.includes(`import ${name}`) || fullCode.includes(`from ${name}`),
   );
   if (packages.length > 0) {
     await runtime.loadPackage(packages);
   }
 
-  runtime.globals.set('__tessera_code', code);
+  runtime.globals.set('__tessera_code', fullCode);
 
   const output = await runtime.runPythonAsync(`
 import io, contextlib, traceback

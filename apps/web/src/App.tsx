@@ -6,12 +6,15 @@ import { Icon } from './components/Icon';
 import { JobsModal } from './components/JobsModal';
 import { ModulesPanel } from './components/ModulesPanel';
 import { PythonModal } from './components/PythonModal';
+import { RuntimeModal } from './components/RuntimeModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Sidebar } from './components/Sidebar';
 import { UpdateBanner } from './components/UpdateBanner';
 import { streamAssistant, suggestionsFor } from './lib/assistant';
 import { fetchJob, loadJobs, saveJobs, submitJob } from './lib/jobs';
 import { testModule } from './lib/modules';
+import { loadPlugins, savePlugins } from './runtime/plugins';
+import { InstalledPlugin } from './runtime/types';
 import {
   clearAllData,
   loadActiveChatId,
@@ -66,6 +69,8 @@ export default function App() {
   const [jobsOpen, setJobsOpen] = useState(false);
   const [jobs, setJobs] = useState<RemoteJob[]>(loadJobs);
   const [jobSubmitting, setJobSubmitting] = useState(false);
+  const [runtimeOpen, setRuntimeOpen] = useState(false);
+  const [plugins, setPlugins] = useState<InstalledPlugin[]>(loadPlugins);
   const [toast, setToast] = useState<{ kind: ToastKind; text: string } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -84,6 +89,7 @@ export default function App() {
   useEffect(() => saveModules(modules), [modules]);
   useEffect(() => saveChats(chats), [chats]);
   useEffect(() => saveJobs(jobs), [jobs]);
+  useEffect(() => savePlugins(plugins), [plugins]);
 
   useEffect(() => {
     const active = jobs.filter((job) => job.status === 'queued' || job.status === 'running');
@@ -603,6 +609,7 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenPython={() => setPythonOpen(true)}
         onOpenJobs={() => setJobsOpen(true)}
+        onOpenRuntime={() => setRuntimeOpen(true)}
         onOpenSidebar={() => setSidebarOpen(true)}
         onSuggestion={handleSuggestion}
         onNewChat={newChat}
@@ -676,6 +683,16 @@ export default function App() {
         onRefresh={refreshRemoteJobs}
         onClear={clearRemoteJobs}
         onUseResult={useRemoteJobResult}
+      />
+
+      <RuntimeModal
+        open={runtimeOpen}
+        settings={settings}
+        modules={modules}
+        plugins={plugins}
+        onPluginsChange={setPlugins}
+        onClose={() => setRuntimeOpen(false)}
+        onResult={notify}
       />
 
       {release && (
